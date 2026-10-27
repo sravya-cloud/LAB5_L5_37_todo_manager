@@ -1,3 +1,6 @@
+
+"""Manage tasks, priorities, persistence, and JSON exports."""
+
 import json
 import os
 import pickle
@@ -8,32 +11,51 @@ tasks = {}
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
-def addTask(title, priority="medium", labels=[]):
-    taskId=len(tasks) + 1
-    labels.append(priority)
-    tasks[taskId] = {"title": title, "priority": priority, "done": False,
-                     "created": datetime.now().isoformat()}
-    return taskId
+def add_task(title, priority="medium", labels=None):
+    """Add a task and return its unique ID."""
+    if priority not in PRIORITY_ORDER:
+        raise ValueError("Priority must be high, medium, or low.")
+
+    task_id = max(tasks, default=0) + 1
+    task_labels = list(labels) if labels is not None else []
+    task_labels.append(priority)
+
+    tasks[task_id] = {
+        "title": title,
+        "priority": priority,
+        "labels": task_labels,
+        "done": False,
+        "created": datetime.now().isoformat(),
+    }
+    return task_id
 
 
-def completeTask(taskId):
-    if taskId in tasks:
-        tasks[taskId]["done"] = True
+def complete_task(task_id):
+    """Mark a task as complete and report whether it exists."""
+    if task_id in tasks:
+        tasks[task_id]["done"] = True
         return True
-    print("No task with id", taskId)
+
+    print("No task with id", task_id)
     return False
 
 
-def pendingTasks():
-    pending = [task for task in tasks.values() if not task["done"]]
+def pending_tasks():
+    """Return pending task titles ordered by priority."""
+    pending = [
+        task for task in tasks.values() if not task["done"]
+    ]
     pending.sort(key=lambda task: PRIORITY_ORDER[task["priority"]])
     return [task["title"] for task in pending]
 
 
-def findTask(keyword):
-    for taskId, task in tasks.items():
+def find_task(keyword):
+    """Return the ID of the first matching task, or None."""
+    for task_id, task in tasks.items():
         if keyword.lower() in task["title"].lower():
-            return taskId
+            return task_id
+    return None
+
 
 
 
