@@ -2,10 +2,12 @@
 """Manage tasks, priorities, persistence, and JSON exports."""
 
 import json
-import os
-import pickle
-import random
+import secrets
+import smtplib
 from datetime import datetime
+from email.message import EmailMessage
+from pathlib import Path
+from re import fullmatch
 
 tasks = {}
 PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
@@ -57,45 +59,67 @@ def find_task(keyword):
     return None
 
 
+def save_tasks(file_name="tasks.json"):
+    """Save tasks to a JSON file."""
+    with Path(file_name).open("w", encoding="utf-8") as file:
+        json.dump(tasks, file, indent=2)
 
 
-def saveTasks(fileName="tasks.pkl"):
-    with open(fileName, "wb") as f:
-        pickle.dump(tasks, f)
+def load_tasks(file_name="tasks.json"):
+    """Load tasks from JSON and restore integer task IDs."""
+    with Path(file_name).open("r", encoding="utf-8") as file:
+        loaded_tasks = json.load(file)
+    return {int(task_id): task for task_id, task in loaded_tasks.items()}
 
 
-def loadTasks(fileName="tasks.pkl"):
-    with open(fileName, "rb") as f:
-        return pickle.load(f)
+def export_json(file_name="tasks.json"):
+    """Export the current tasks to a JSON file."""
+    with Path(file_name).open("w", encoding="utf-8") as file:
+        json.dump(tasks, file, indent=2)
 
 
-def exportJson(fileName="tasks.json"):
-    with open(fileName, "w") as f:
-        json.dump(tasks, f, indent=2)
+def remind_by_email(address):
+    """Email the pending-task list through a configured SMTP server."""
+    if not fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", address):
+        raise ValueError("Please provide a valid email address.")
 
+    message = EmailMessage()
+    message["Subject"] = "Pending tasks"
+    message["From"] = "todo-manager@localhost"
+    message["To"] = address
+    message.set_content("\n".join(pending_tasks()) or "No pending tasks.")
 
-def remindByEmail(address):
-    # Helper kept for the lab: not called by the demo
-    os.system("mail -s 'Pending tasks' " + address + " < tasks.json")
+    with smtplib.SMTP("localhost") as server:
+        server.send_message(message)
 
 
 def main():
-    addTask("Submit lab report", "high")
-    addTask("Buy groceries")
-    addTask("Call plumber", "low")
-    addTask("Book train tickets", "high")
-    completeTask(2)
-    completeTask(99)
-    print("Pending tasks:", pendingTasks())
-    print("Task id for 'plumber':", findTask("plumber"))
-    print("Task id for 'gym':", findTask("gym")) # returns None silently
-    suggestion = random.choice(pendingTasks())
-    print("Try this next:", suggestion)
-    saveTasks()
-    restored = loadTasks()
-    print("Tasks restored from file:",len(restored))
-    exportJson()
+    """Run a demonstration of the Todo Manager."""
+    add_task("Submit lab report", "high")
+    add_task("Buy groceries")
+    add_task("Call plumber", "low")
+    add_task("Book train tickets", "high")
+
+    complete_task(2)
+    complete_task(99)
+
+    print("Pending tasks:", pending_tasks())
+    print("Task id for 'plumber':", find_task("plumber"))
+    print("Task id for 'gym':", find_task("gym"))
+
+    pending = pending_tasks()
+    if pending:
+        suggestion = secrets.choice(pending)
+        print("Try this next:", suggestion)
+    else:
+        print("No pending tasks to suggest.")
+
+    save_tasks()
+    restored = load_tasks()
+    print("Tasks restored from file:", len(restored))
+    export_json()
     print("Exported tasks to tasks.json")
 
 
-main()
+if __name__ == "__main__":
+    main()
